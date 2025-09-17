@@ -1,0 +1,230 @@
+# Main configuration file for MoA prediction framework
+
+# Project scope and settings
+scope:
+  # MoA prediction type: "single_label" or "multi_label"
+  prediction_type: "multi_label"
+  
+  # Modalities to use in the model
+  modalities:
+    chemistry: true          # Chemical structure features
+    perturbation: true       # LINCS L1000 perturbation data
+    targets: true           # Protein target information
+    pathways: true          # Biological pathway data
+    structures: false       # 3D protein structure features (optional)
+
+# Data sources and benchmarks
+data:
+  benchmarks:
+    - "chembl"
+    - "drugbank" 
+    - "lincs_l1000"
+  
+  # ChEMBL settings
+  chembl:
+    version: "33"
+    confidence_score_threshold: 6
+    activity_types: ["IC50", "EC50", "Ki", "Kd"]
+  
+  # LINCS settings
+  lincs:
+    level: "L3"  # L3 for gene expression signatures
+    cell_lines: ["MCF7", "PC3", "A549", "HT29", "HEPG2"]
+    time_points: ["24h"]
+    
+  # Pathway databases
+  pathways:
+    reactome: true
+    kegg: true
+    go_biological_process: true
+
+# Feature engineering settings
+features:
+  # Chemical features
+  chemistry:
+    molecular_descriptors:
+      - "morgan_fingerprints"
+      - "rdkit_descriptors"
+      - "mordred_descriptors"
+    graph_features:
+      node_features: ["atomic_number", "formal_charge", "hybridization", "aromatic"]
+      edge_features: ["bond_type", "conjugated", "in_ring"]
+    substructure_analysis:
+      enable_counterfactual: true
+      fragment_size_range: [3, 8]
+  
+  # Mechanism tokens (MechTokens)
+  mechanism_tokens:
+    ontology_sources: ["chembl", "drugbank", "reactome", "kegg"]
+    embedding_dim: 256
+    node2vec_params:
+      dimensions: 128
+      walk_length: 80
+      num_walks: 10
+      workers: 4
+  
+  # Perturbational biology
+  perturbation:
+    signature_aggregation: "meta_signature"  # across cell types
+    pathway_scoring: "gsva"  # or "ssgsea"
+    gene_set_databases: ["hallmark", "c2_canonical", "reactome"]
+  
+  # Protein pocket features (optional)
+  pocket_features:
+    enable: false
+    representation: "pointnet"  # or "3dcnn"
+    pocket_radius: 10.0  # Angstroms
+    alphafold_db: true
+
+# Model Architecture Configuration
+models:
+  # Model type: "baseline", "chemistry_only", "multimodal"
+  model_type: "multimodal"
+
+  # Global model parameters
+  embedding_dim: 256
+  dropout: 0.1
+  use_hypergraph_fusion: true
+
+  # Graph Transformer for chemical features
+  graph_transformer:
+    num_layers: 6
+    hidden_dim: 256
+    num_heads: 8
+    dropout: 0.1
+    pooling: "attention"  # "attention", "set2set", "hierarchical"
+    use_counterfactual: true
+
+  # Pathway Transformer for biological features
+  pathway_transformer:
+    num_layers: 6
+    hidden_dim: 256
+    num_heads: 8
+    dropout: 0.1
+    use_hierarchy: true
+    use_pathway_bias: true
+
+  # Hypergraph Neural Network for fusion
+  hypergraph:
+    num_layers: 3
+    num_heads: 8
+    dropout: 0.1
+
+# Training configuration
+training:
+  # Multi-objective loss weights
+  loss_weights:
+    classification: 1.0
+    prototype: 0.5
+    invariance: 0.3
+    contrastive: 0.2
+
+  # Loss function parameters
+  use_focal_loss: true
+  focal_alpha: 0.25
+  focal_gamma: 2.0
+
+  # Prototype loss
+  prototype_temperature: 0.1
+  prototype_margin: 0.5
+
+  # Invariance loss
+  invariance_type: "augmentation"  # "augmentation", "modality", "scaffold"
+  invariance_temperature: 0.1
+  lambda_invariance: 1.0
+
+  # Contrastive loss
+  contrastive_temperature: 0.1
+  contrastive_margin: 0.5
+  negative_sampling: "hard"  # "hard", "random", "semi-hard"
+
+  # Training parameters
+  batch_size: 32
+  learning_rate: 1e-4
+  weight_decay: 1e-5
+  max_epochs: 100
+  patience: 15
+
+  # Modality dropout for robustness
+  modality_dropout:
+    enable: true
+    dropout_prob: 0.2
+
+  # Additional loss components
+  prototype_loss:
+    weight: 0.5
+    temperature: 0.1
+  assay_invariance:
+    weight: 0.3
+    method: "vrex"  # or "irm"
+  counterfactual_consistency:
+    weight: 0.2
+  graph_contrastive:
+    weight: 0.4
+    temperature: 0.07
+
+  # Curriculum learning
+  curriculum:
+    enable: true
+    start_with_single_moa: true
+    progression_epochs: [10, 20, 30]
+
+# Evaluation settings
+evaluation:
+  metrics:
+    - "macro_f1"
+    - "macro_pr_auc"
+    - "micro_f1"
+    - "micro_pr_auc"
+    - "calibration_ece"
+    - "brier_score"
+  
+  # Data splits
+  splits:
+    scaffold_split:
+      enable: true
+      train_ratio: 0.7
+      val_ratio: 0.15
+      test_ratio: 0.15
+    
+    temporal_split:
+      enable: true
+      cutoff_year: 2020
+    
+    assay_ood_split:
+      enable: true
+      held_out_assays: 0.2
+
+# Interpretation and explainability
+interpretation:
+  substructure_attribution: true
+  pathway_attention: true
+  uncertainty_estimation: true
+  counterfactual_explanations: true
+
+# Computational settings
+compute:
+  device: "auto"  # auto, cpu, cuda, mps
+  num_workers: 4
+  pin_memory: true
+  mixed_precision: true
+
+# Logging and monitoring
+logging:
+  level: "INFO"
+  wandb:
+    enable: true
+    project: "moa-prediction"
+    entity: "research-team"
+  
+  checkpointing:
+    save_top_k: 3
+    monitor: "val_macro_f1"
+    mode: "max"
+
+# Paths
+paths:
+  data_dir: "data"
+  model_dir: "models"
+  results_dir: "results"
+  cache_dir: "cache"

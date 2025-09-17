@@ -1,0 +1,199 @@
+# Data source configurations for different databases and APIs
+
+chembl:
+  # ChEMBL database settings
+  base_url: "https://www.ebi.ac.uk/chembl/api/data"
+  version: "33"
+  
+  # Mechanism of action data
+  mechanism:
+    endpoint: "mechanism"
+    confidence_threshold: 6
+    direct_interaction: true
+    
+  # Activity data
+  activities:
+    endpoint: "activity"
+    activity_types: ["IC50", "EC50", "Ki", "Kd", "Inhibition"]
+    standard_relation: ["=", "<", "<="]
+    pchembl_value_min: 4.0  # -log10(activity) >= 4 (activity <= 100 µM)
+    
+  # Target data
+  targets:
+    endpoint: "target"
+    target_types: ["PROTEIN", "PROTEIN COMPLEX"]
+    organism: "Homo sapiens"
+    
+  # Compound data
+  compounds:
+    endpoint: "molecule"
+    max_heavy_atoms: 100
+    min_heavy_atoms: 5
+    molecular_weight_max: 1000
+    molecular_weight_min: 150
+
+drugbank:
+  # DrugBank database (requires license)
+  version: "5.1.10"
+  xml_file: "data/raw/drugbank/full_database.xml"
+  
+  # Drug categories to include
+  categories:
+    - "Small Molecule"
+    - "Biotech"
+  
+  # Drug groups to include
+  groups:
+    - "approved"
+    - "investigational"
+    - "experimental"
+  
+  # Mechanism fields to extract
+  mechanism_fields:
+    - "mechanism-of-action"
+    - "pharmacodynamics"
+    - "targets"
+    - "pathways"
+
+lincs:
+  # LINCS L1000 data
+  base_url: "https://clue.io/api"
+  
+  # Signature data
+  signatures:
+    level: "L3"  # Gene expression signatures
+    cell_lines: 
+      - "MCF7"    # Breast cancer
+      - "PC3"     # Prostate cancer
+      - "A549"    # Lung cancer
+      - "HT29"    # Colon cancer
+      - "HEPG2"   # Liver cancer
+      - "VCAP"    # Prostate cancer
+      - "A375"    # Melanoma
+      - "HA1E"    # Kidney
+      - "HCC515"  # Lung cancer
+    
+    time_points: ["6h", "24h"]
+    doses: ["10 µM"]  # Standard screening dose
+    
+  # Perturbagen data
+  perturbagens:
+    types: ["trt_cp"]  # Compound perturbations
+    
+  # Gene expression data
+  genes:
+    landmark_genes: true  # 978 landmark genes
+    inferred_genes: false  # Skip 11k inferred genes for now
+
+reactome:
+  # Reactome pathway database
+  base_url: "https://reactome.org/ContentService"
+  version: "current"
+  species: "Homo sapiens"
+  
+  # Pathway data
+  pathways:
+    levels: [1, 2, 3, 4]  # Include multiple hierarchy levels
+    exclude_disease: false
+    
+  # Protein-pathway mappings
+  proteins:
+    include_complexes: true
+    include_sets: true
+
+kegg:
+  # KEGG pathway database
+  base_url: "https://rest.kegg.jp"
+  organism: "hsa"  # Homo sapiens
+  
+  # Pathway categories
+  pathways:
+    categories:
+      - "Metabolism"
+      - "Genetic Information Processing"
+      - "Environmental Information Processing"
+      - "Cellular Processes"
+      - "Human Diseases"
+    
+    exclude_categories:
+      - "Drug Development"  # Avoid circular references
+
+gene_ontology:
+  # Gene Ontology
+  base_url: "http://current.geneontology.org"
+  
+  # GO aspects
+  aspects:
+    - "biological_process"
+    - "molecular_function"
+    - "cellular_component"
+  
+  # Evidence codes to include
+  evidence_codes:
+    - "EXP"  # Inferred from Experiment
+    - "IDA"  # Inferred from Direct Assay
+    - "IPI"  # Inferred from Physical Interaction
+    - "IMP"  # Inferred from Mutant Phenotype
+    - "IGI"  # Inferred from Genetic Interaction
+    - "IEP"  # Inferred from Expression Pattern
+
+uniprot:
+  # UniProt protein database
+  base_url: "https://rest.uniprot.org"
+  
+  # Protein data
+  proteins:
+    organism: "9606"  # Homo sapiens
+    reviewed: true    # Swiss-Prot only
+    
+  # Features to extract
+  features:
+    - "function"
+    - "pathway"
+    - "interaction"
+    - "subcellular_location"
+
+alphafold:
+  # AlphaFold protein structure database
+  base_url: "https://alphafold.ebi.ac.uk/api"
+  
+  # Structure data
+  structures:
+    confidence_threshold: 70  # pLDDT score
+    format: "pdb"
+    
+  # Binding site prediction
+  binding_sites:
+    method: "fpocket"
+    min_volume: 200  # Cubic Angstroms
+    druggability_threshold: 0.5
+
+# Data processing settings
+processing:
+  # SMILES standardization
+  smiles:
+    standardizer: "chembl"  # or "rdkit"
+    remove_salts: true
+    neutralize: true
+    canonicalize: true
+    
+  # Duplicate handling
+  duplicates:
+    method: "inchikey"  # or "smiles"
+    keep: "first"  # or "last", "random"
+    
+  # Quality filters
+  quality:
+    max_heavy_atoms: 100
+    min_heavy_atoms: 5
+    max_molecular_weight: 1000
+    min_molecular_weight: 150
+    max_rotatable_bonds: 20
+    max_aromatic_rings: 6
+    
+# Caching settings
+cache:
+  enable: true
+  backend: "disk"  # or "memory", "redis"
+  ttl: 86400  # 24 hours
+  max_size: "10GB"
